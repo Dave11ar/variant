@@ -89,9 +89,7 @@ template <typename Variant>
 inline constexpr std::size_t variant_size_v = variant_size<Variant>::value;
 
 struct bad_variant_access : public std::exception {
-  bad_variant_access& operator=(bad_variant_access const&other) noexcept = default;
-
-  virtual const char* what() const noexcept {
+  constexpr const char* what() const noexcept {
     return "bad_variant_access";
   }
 };
