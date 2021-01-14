@@ -6,6 +6,7 @@
 /**
  * bases for destructor
  */
+namespace var {
 template <bool is_trivial, typename First, typename ...Rest>
 struct variadic_storage_destructor_base {
 protected:
@@ -17,11 +18,11 @@ protected:
 
   template <typename T/*, std::enable_if_t<std::is_constructible_v<T, T>, int> = 0*/ >
   constexpr variadic_storage_destructor_base(T &&t)
-      : index_val(index_chooser_v<T, variant<First, Rest...>>), value(in_place_index<index_chooser_v<T, variant<First, Rest...>>>, std::forward<T>(t)) {}
+      : index_val(var::index_chooser_v<T, variant<First, Rest...>>), value(in_place_index<var::index_chooser_v<T, variant<First, Rest...>>>, std::forward<T>(t)) {}
 
   template <typename T, typename ...Args/*, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0*/>
   constexpr variadic_storage_destructor_base(in_place_type_t<T>, Args&&... args)
-      : index_val(type_index<T, First, Rest...>), value(in_place_index<type_index<T, First, Rest...>>, std::forward<Args>(args)...) {}
+      : index_val(var::type_index<T, First, Rest...>), value(in_place_index<var::type_index<T, First, Rest...>>, std::forward<Args>(args)...) {}
 
   template <size_t I, typename ...Args>
   constexpr variadic_storage_destructor_base(in_place_index_t<I>, Args &&...args)
@@ -46,11 +47,11 @@ protected:
   template <typename T/*, std::enable_if_t<std::is_constructible_v<T, T>, int> = 0*/ /*,
       std::enable_if_t<std::is_same_v<T, First> || (std::is_same_v<T, Rest> || ...), int> = 0*/>
   constexpr variadic_storage_destructor_base(T &&t)
-      : index_val(index_chooser_v<T, variant<First, Rest...>>), value(in_place_index<index_chooser_v<T, variant<First, Rest...>>>, std::forward<T>(t)) {}
+      : index_val(var::index_chooser_v<T, variant<First, Rest...>>), value(in_place_index<var::index_chooser_v<T, variant<First, Rest...>>>, std::forward<T>(t)) {}
 
   template <typename T, typename ...Args/*, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0*/>
   constexpr variadic_storage_destructor_base(in_place_type_t<T>, Args&&... args)
-      : index_val(type_index<T, First, Rest...>), value(in_place_index<type_index<T, First, Rest...>>, std::forward<Args>(args)...) {}
+      : index_val(var::type_index<T, First, Rest...>), value(in_place_index<var::type_index<T, First, Rest...>>, std::forward<Args>(args)...) {}
 
   template <size_t I, typename ...Args>
   constexpr variadic_storage_destructor_base(in_place_index_t<I>, Args&&... args)
@@ -73,8 +74,8 @@ protected:
  */
 template <bool is_trivial, typename ...Types>
 struct variadic_storage_copy_constructor_base :
-    variadic_storage_destructor_base<variant_traits<Types...>::trivially_destructible, Types...> {
-  using base = variadic_storage_destructor_base<variant_traits<Types...>::trivially_destructible, Types...>;
+    variadic_storage_destructor_base<var::variant_traits<Types...>::trivially_destructible, Types...> {
+  using base = variadic_storage_destructor_base<var::variant_traits<Types...>::trivially_destructible, Types...>;
   using base::base;
 
   constexpr variadic_storage_copy_constructor_base(variadic_storage_copy_constructor_base const &other) {
@@ -96,8 +97,8 @@ struct variadic_storage_copy_constructor_base :
 
 template <typename ...Types>
 struct variadic_storage_copy_constructor_base<true, Types...> :
-    variadic_storage_destructor_base<variant_traits<Types...>::trivially_destructible, Types...> {
-  using base = variadic_storage_destructor_base<variant_traits<Types...>::trivially_destructible, Types...>;
+    variadic_storage_destructor_base<var::variant_traits<Types...>::trivially_destructible, Types...> {
+  using base = variadic_storage_destructor_base<var::variant_traits<Types...>::trivially_destructible, Types...>;
   using base::base;
 
   constexpr variadic_storage_copy_constructor_base(variadic_storage_copy_constructor_base const &other) = default;
@@ -111,12 +112,12 @@ struct variadic_storage_copy_constructor_base<true, Types...> :
  */
 template <bool is_trivial, typename ...Types>
 struct variadic_storage_move_constructor_base :
-    variadic_storage_copy_constructor_base<variant_traits<Types...>::trivially_copy_constructible, Types...> {
-  using base = variadic_storage_copy_constructor_base<variant_traits<Types...>::trivially_copy_constructible, Types...>;
+    variadic_storage_copy_constructor_base<var::variant_traits<Types...>::trivially_copy_constructible, Types...> {
+  using base = variadic_storage_copy_constructor_base<var::variant_traits<Types...>::trivially_copy_constructible, Types...>;
   using base::base;
 
   constexpr variadic_storage_move_constructor_base(variadic_storage_move_constructor_base &&other)
-    noexcept(variant_traits<Types...>::nothrow_move_constructible) {
+    noexcept(var::variant_traits<Types...>::nothrow_move_constructible) {
     variant<Types...> &&other_variant = variant_cast(std::forward<decltype(other)>(other));
     variant<Types...> &this_variant = variant_cast(*this);
 
@@ -135,8 +136,8 @@ struct variadic_storage_move_constructor_base :
 
 template <typename ...Types>
 struct variadic_storage_move_constructor_base<true, Types...> :
-    variadic_storage_copy_constructor_base<variant_traits<Types...>::trivially_copy_constructible, Types...> {
-  using base = variadic_storage_copy_constructor_base<variant_traits<Types...>::trivially_copy_constructible, Types...>;
+    variadic_storage_copy_constructor_base<var::variant_traits<Types...>::trivially_copy_constructible, Types...> {
+  using base = variadic_storage_copy_constructor_base<var::variant_traits<Types...>::trivially_copy_constructible, Types...>;
   using base::base;
 
 
@@ -152,8 +153,8 @@ struct variadic_storage_move_constructor_base<true, Types...> :
  */
 template <bool is_trivial, typename ...Types>
 struct variadic_storage_copy_assignment_base :
-    variadic_storage_move_constructor_base<variant_traits<Types...>::trivially_move_constructible, Types...> {
-  using base = variadic_storage_move_constructor_base<variant_traits<Types...>::trivially_move_constructible, Types...>;
+    variadic_storage_move_constructor_base<var::variant_traits<Types...>::trivially_move_constructible, Types...> {
+  using base = variadic_storage_move_constructor_base<var::variant_traits<Types...>::trivially_move_constructible, Types...>;
   using base::base;
 
   constexpr variadic_storage_copy_assignment_base& operator=(variadic_storage_copy_assignment_base const &other) {
@@ -187,8 +188,8 @@ struct variadic_storage_copy_assignment_base :
 
 template <typename ...Types>
 struct variadic_storage_copy_assignment_base<true, Types...> :
-    variadic_storage_move_constructor_base<variant_traits<Types...>::trivially_move_constructible, Types...> {
-  using base = variadic_storage_move_constructor_base<variant_traits<Types...>::trivially_move_constructible, Types...>;
+    variadic_storage_move_constructor_base<var::variant_traits<Types...>::trivially_move_constructible, Types...> {
+  using base = variadic_storage_move_constructor_base<var::variant_traits<Types...>::trivially_move_constructible, Types...>;
   using base::base;
 
 
@@ -204,12 +205,12 @@ struct variadic_storage_copy_assignment_base<true, Types...> :
  */
 template <bool is_trivial, typename ...Types>
 struct variadic_storage_move_assignment_base :
-    variadic_storage_copy_assignment_base<variant_traits<Types...>::trivially_copy_assignable, Types...> {
-  using base = variadic_storage_copy_assignment_base<variant_traits<Types...>::trivially_copy_assignable, Types...>;
+    variadic_storage_copy_assignment_base<var::variant_traits<Types...>::trivially_copy_assignable, Types...> {
+  using base = variadic_storage_copy_assignment_base<var::variant_traits<Types...>::trivially_copy_assignable, Types...>;
   using base::base;
 
   constexpr variadic_storage_move_assignment_base& operator=(variadic_storage_move_assignment_base &&other)
-      noexcept(variant_traits<Types...>::nothrow_move_assignable) {
+      noexcept(var::variant_traits<Types...>::nothrow_move_assignable) {
     variant<Types...> &&other_variant = variant_cast(std::forward<decltype(other)>(other));
     variant<Types...> &this_variant = variant_cast(*this);
 
@@ -239,8 +240,8 @@ struct variadic_storage_move_assignment_base :
 
 template <typename ...Types>
 struct variadic_storage_move_assignment_base<true, Types...> :
-    variadic_storage_copy_assignment_base<variant_traits<Types...>::trivially_copy_assignable, Types...> {
-  using base = variadic_storage_copy_assignment_base<variant_traits<Types...>::trivially_copy_assignable, Types...>;
+    variadic_storage_copy_assignment_base<var::variant_traits<Types...>::trivially_copy_assignable, Types...> {
+  using base = variadic_storage_copy_assignment_base<var::variant_traits<Types...>::trivially_copy_assignable, Types...>;
   using base::base;
 
 
@@ -255,11 +256,11 @@ struct variadic_storage_move_assignment_base<true, Types...> :
  * main base
  */
 template <typename ...Types>
-struct variadic_storage : variadic_storage_move_assignment_base<variant_traits<Types...>::trivially_move_assignable, Types...> {
-  using base = variadic_storage_move_assignment_base<variant_traits<Types...>::trivially_move_assignable, Types...>;
+struct variadic_storage : variadic_storage_move_assignment_base<var::variant_traits<Types...>::trivially_move_assignable, Types...> {
+  using base = variadic_storage_move_assignment_base<var::variant_traits<Types...>::trivially_move_assignable, Types...>;
   using base::base;
 
-  constexpr variadic_storage() noexcept(variant_traits<Types...>::nothrow_default_constructible)
+  constexpr variadic_storage() noexcept(var::variant_traits<Types...>::nothrow_default_constructible)
     : base(in_place_index<0>) {};
 
 
@@ -268,3 +269,4 @@ struct variadic_storage : variadic_storage_move_assignment_base<variant_traits<T
   constexpr variadic_storage &operator=(variadic_storage const &other) = default;
   constexpr variadic_storage &operator=(variadic_storage &&other) = default;
 };
+} // end of var namespace

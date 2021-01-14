@@ -6,13 +6,13 @@
 #include <bits/enable_special_members.h>
 
 template <typename ...Types>
-struct variant : private variadic_storage<Types...>,
-                 private std::_Enable_default_constructor<variant_traits<Types...>::default_constructible>,
-                 private std::_Enable_copy_move<variant_traits<Types...>::copy_constructible, variant_traits<Types...>::copy_assignable,
-                                                variant_traits<Types...>::move_constructible, variant_traits<Types...>::move_assignable> {
+struct variant : private var::variadic_storage<Types...>,
+                 private std::_Enable_default_constructor<var::variant_traits<Types...>::default_constructible>,
+                 private std::_Enable_copy_move<var::variant_traits<Types...>::copy_constructible, var::variant_traits<Types...>::copy_assignable,
+                                                var::variant_traits<Types...>::move_constructible, var::variant_traits<Types...>::move_assignable> {
 
-  using default_ctor_enabler = std::_Enable_default_constructor<variant_traits<Types...>::default_constructible>;
-  using base = variadic_storage<Types...>;
+  using default_ctor_enabler = std::_Enable_default_constructor<var::variant_traits<Types...>::default_constructible>;
+  using base = var::variadic_storage<Types...>;
   using base::base;
 
 public:
@@ -23,22 +23,23 @@ public:
   constexpr variant &operator=(variant &&) = default;
   ~variant() = default;
 
-  template <typename T, std::enable_if_t<variant_traits<Types...>::template converting_constructible<T>, int> = 0>
-  constexpr variant(T &&t) noexcept(variant_traits<Types...>::template nothrow_converting_constructible<T>)
+  template <typename T, std::enable_if_t<var::variant_traits<Types...>::template converting_constructible<T>, int> = 0>
+  constexpr variant(T &&t) noexcept(var::variant_traits<Types...>::template nothrow_converting_constructible<T>)
       : base(std::forward<T>(t)), default_ctor_enabler(std::_Enable_default_constructor_tag{}) {}
 
-  template <typename T, typename ...Args, std::enable_if_t<variant_traits<Types...>::template in_place_type_constructible<T, Args...>, int> = 0>
+  template <typename T, typename ...Args, std::enable_if_t<var::variant_traits<Types...>::template in_place_type_constructible<T, Args...>, int> = 0>
   constexpr explicit variant(in_place_type_t<T>, Args&&... args)
       : base(in_place_type<T>, std::forward<Args>(args)...), default_ctor_enabler(std::_Enable_default_constructor_tag{}) {}
 
-  template <size_t I, typename ...Args, std::enable_if_t<variant_traits<Types...>::template in_place_index_constructible<I, Args...>, int> = 0>
+  template <size_t I, typename ...Args, std::enable_if_t<var::variant_traits<Types...>::template
+      in_place_index_constructible_base<I>::template in_place_index_constructible<Args...>, int> = 0>
   constexpr explicit variant(in_place_index_t<I>, Args &&...args)
     : base(in_place_index<I>, std::forward<Args>(args)...), default_ctor_enabler(std::_Enable_default_constructor_tag{}) {}
 
-  template <typename T, std::enable_if_t<variant_traits<Types...>::template converting_assignable<T>, int> = 0>
-  constexpr variant &operator=(T &&t) noexcept(variant_traits<Types...>::template nothrow_converting_assignable<T>) {
-    visit_index<void>([this, &t](auto _index) {
-      constexpr auto new_index = index_chooser_v<T, variant<Types...>>;
+  template <typename T, std::enable_if_t<var::variant_traits<Types...>::template converting_assignable<T>, int> = 0>
+  constexpr variant &operator=(T &&t) noexcept(var::variant_traits<Types...>::template nothrow_converting_assignable<T>) {
+    var::visit_index<void>([this, &t](auto _index) {
+      constexpr auto new_index = var::index_chooser_v<T, variant<Types...>>;
       if constexpr (new_index == _index) {
         get(in_place_index<_index>) = std::forward<T>(t);
       } else {
@@ -64,7 +65,7 @@ public:
 
   template <typename T, typename ...Args>
   T& emplace(Args &&...args) {
-    return this->emplace<type_index<T, Types...>, Args...>(std::forward<Args>(args)...);
+    return this->emplace<var::type_index<T, Types...>, Args...>(std::forward<Args>(args)...);
   }
 
   template <size_t I, typename ... Args>
@@ -93,13 +94,13 @@ public:
         return;
       }
     } else if (other.index() == this->index()) {
-      visit_index<void>([this, &other](auto this_index, auto other_index) {
+      var::visit_index<void>([this, &other](auto this_index, auto other_index) {
           using std::swap;
           swap(this->get(in_place_index<this_index>), other.get(in_place_index<this_index>));
           swap(this->index_val, other.index_val);
       }, *this, other);
     } else {
-      visit_index<void>([this, &other](auto this_index, auto other_index){
+      var::visit_index<void>([this, &other](auto this_index, auto other_index){
         auto tmp(std::move(::get<other_index>(other)));
 
         other.emplace_variant(std::move(::get<this_index>(*this)));
@@ -118,19 +119,19 @@ public:
 
 private:
   void emplace_variant(variant &&other) {
-    visit_index<void>([this, &other](auto _index) {
+    var::visit_index<void>([this, &other](auto _index) {
       this->template emplace<_index>(::get<_index>(std::forward<decltype(other)>(other)));
     }, std::forward<variant>(other));
   }
 
   void emplace_variant(variant const &other) {
-    visit_index<void>([this, &other](auto _index) {
+    var::visit_index<void>([this, &other](auto _index) {
       this->template emplace<_index>(::get<_index>(other));
     }, other);
   }
 
   void destroy() {
-    visit_index<void>([this](auto _index){
+    var::visit_index<void>([this](auto _index){
       destroy(in_place_index<_index>);
     }, *this);
   }
@@ -163,22 +164,22 @@ private:
   }
 
   template <bool is_trivial, typename First, typename ...Rest>
-  friend struct variadic_storage_destructor_base;
+  friend struct var::variadic_storage_destructor_base;
   template <bool is_trivial, typename ...F_Types>
-  friend struct variadic_storage_copy_constructor_base;
+  friend struct var::variadic_storage_copy_constructor_base;
   template <bool is_trivial, typename ...F_Types>
-  friend struct variadic_storage_move_constructor_base;
+  friend struct var::variadic_storage_move_constructor_base;
   template <bool is_trivial, typename ...F_Types>
-  friend struct variadic_storage_copy_assignment_base;
+  friend struct var::variadic_storage_copy_assignment_base;
   template <bool is_trivial, typename ...F_Types>
-  friend struct variadic_storage_move_assignment_base;
+  friend struct var::variadic_storage_move_assignment_base;
   template <typename ...F_Types>
-  friend struct variadic_storage;
+  friend struct var::variadic_storage;
 };
 
 template <typename ...Types>
 constexpr bool operator==(variant<Types...> const &v, variant<Types...> const &w) {
-  return visit_index<bool>([&v, &w](auto index_v, auto index_w) {
+  return var::visit_index<bool>([&v, &w](auto index_v, auto index_w) {
     if constexpr (index_v != index_w) {
       return false;
     } else {
@@ -193,7 +194,7 @@ constexpr bool operator==(variant<Types...> const &v, variant<Types...> const &w
 
 template <typename ...Types>
 constexpr bool operator!=(variant<Types...> const &v, variant<Types...> const &w) {
-  return visit_index<bool>([&v, &w](auto index_v, auto index_w) {
+  return var::visit_index<bool>([&v, &w](auto index_v, auto index_w) {
     if constexpr (index_v != index_w) {
       return true;
     } else {
@@ -208,7 +209,7 @@ constexpr bool operator!=(variant<Types...> const &v, variant<Types...> const &w
 
 template <typename ...Types>
 constexpr bool operator<(variant<Types...> const &v, variant<Types...> const &w) {
-  return visit_index<bool>([&v, &w](auto index_v, auto index_w) {
+  return var::visit_index<bool>([&v, &w](auto index_v, auto index_w) {
     if constexpr (index_w == variant_npos) {
       return false;
     } else if constexpr (index_v == variant_npos) {
@@ -225,7 +226,7 @@ constexpr bool operator<(variant<Types...> const &v, variant<Types...> const &w)
 
 template <typename ...Types>
 constexpr bool operator>(variant<Types...> const &v, variant<Types...> const &w) {
-  return visit_index<bool>([&v, &w](auto index_v, auto index_w) {
+  return var::visit_index<bool>([&v, &w](auto index_v, auto index_w) {
     if constexpr (index_v == variant_npos) {
       return false;
     } else if constexpr (index_w == variant_npos) {
@@ -242,7 +243,7 @@ constexpr bool operator>(variant<Types...> const &v, variant<Types...> const &w)
 
 template <typename ...Types>
 constexpr bool operator<=(variant<Types...> const &v, variant<Types...> const &w) {
-  return visit_index<bool>([&v, &w](auto index_v, auto index_w) {
+  return var::visit_index<bool>([&v, &w](auto index_v, auto index_w) {
     if constexpr (index_v == variant_npos) {
       return true;
     } else if constexpr (index_w == variant_npos) {
@@ -259,7 +260,7 @@ constexpr bool operator<=(variant<Types...> const &v, variant<Types...> const &w
 
 template <typename ...Types>
 constexpr bool operator>=(variant<Types...> const &v, variant<Types...> const &w) {
-  return visit_index<bool>([&v, &w](auto index_v, auto index_w) {
+  return var::visit_index<bool>([&v, &w](auto index_v, auto index_w) {
     if constexpr (index_w == variant_npos) {
       return true;
     } else if constexpr (index_v == variant_npos) {

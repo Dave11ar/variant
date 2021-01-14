@@ -5,6 +5,7 @@
 #include "helpers.h"
 #include "variadic_storage.h"
 
+namespace var {
 template <bool, typename ...Types>
 union variadic_union {
 };
@@ -133,3 +134,4 @@ private:
   First first;
   variadic_union<true, Rest...> rest;
 };
+} // end of var namespace

@@ -2,20 +2,21 @@
 #include <cstddef>
 
 template <typename ...Types>
+struct variant;
+
+namespace var{
+template <typename ...Types>
 struct variant_traits;
 
 template <bool, typename ...Types>
 union variadic_union;
 
 template <typename ...Types>
-struct variant;
-
-template <typename ...Types>
 struct variadic_storage;
 
 template <bool is_trivial, typename First, typename ...Rest>
 struct variadic_storage_destructor_base;
-
+} // end of var namespace
 template <typename T>
 struct in_place_type_t {};
 template <typename T>
@@ -28,21 +29,13 @@ inline constexpr in_place_index_t<index> in_place_index {};
 
 inline constexpr size_t variant_npos = -1;
 
+namespace var {
 template <typename T, typename ...Types>
-inline constexpr size_t type_index =  variadic_union<false, Types...>::template get_type_index<0>(in_place_type<T>);
-
-struct bad_type {
-  constexpr bad_type() = delete;
-  constexpr bad_type(bad_type const &) = delete;
-  constexpr bad_type(bad_type &&) = delete;
-  constexpr bad_type &operator=(bad_type const &) = delete;
-  constexpr bad_type &operator=(bad_type &&) = delete;
-};
+inline constexpr size_t type_index =  var::variadic_union<false, Types...>::template get_type_index<0>(in_place_type<T>);
+}
 
 template <size_t I, typename Variant>
-struct variant_alternative {
-  using type = bad_type; //TODO
-};
+struct variant_alternative;
 
 template <size_t I, typename First, typename ...Rest>
 struct variant_alternative<I, variant<First, Rest...>>
@@ -131,24 +124,27 @@ constexpr variant_alternative_t<I, variant<Types...>> const &&get(variant<Types.
 
 template <typename T, typename ...Types>
 constexpr T &get(variant<Types...> &v) {
-  return get<type_index<T, Types...>>(v);
+  return get<var::type_index<T, Types...>>(v);
 }
 
 template <typename T, typename ...Types>
 constexpr T &&get(variant<Types...> &&v) {
-  return std::move(get<type_index<T>, Types...>(v));
+  return std::move(get<var::type_index<T>, Types...>(v));
 }
 
 template <typename T, typename ...Types>
 constexpr T const &get(variant<Types...> const &v) {
-  return get<type_index<T, Types...>>(v);
+  return get<var::type_index<T, Types...>>(v);
 }
 
 template <typename T, typename ...Types>
 constexpr T const &&get(variant<Types...> const &&v) {
-  return std::forward<T const &&>(get<type_index<T>, Types...>(v));
+  return std::forward<T const &&>(get<var::type_index<T>, Types...>(v));
 }
 
+
+
+namespace var {
 template<size_t index>
 struct index_wrapper {
   static constexpr size_t value = index;
@@ -201,12 +197,24 @@ struct dispatcher<true, IsValue, R> {
   static constexpr R switch_(F &&f, V &&v, Vs &&...vs) {
     constexpr size_t size = variant_size_v<std::__remove_cvref_t<V>>;
     switch (v.index()) {
-      case B: {
-        return dispatcher<B < size, IsValue, R>::template case_<B, Is...>(
+      case B + 0: {
+        return dispatcher<B + 0 < size, IsValue, R>::template case_<B + 0, Is...>(
+            std::forward<F>(f), std::forward<V>(v), std::forward<Vs>(vs)...);
+      }
+      case B + 1: {
+        return dispatcher<B + 1 < size, IsValue, R>::template case_<B + 1, Is...>(
+            std::forward<F>(f), std::forward<V>(v), std::forward<Vs>(vs)...);
+      }
+      case B + 2: {
+        return dispatcher<B + 2 < size, IsValue, R>::template case_<B + 2, Is...>(
+            std::forward<F>(f), std::forward<V>(v), std::forward<Vs>(vs)...);
+      }
+      case B + 3: {
+        return dispatcher<B + 3 < size, IsValue, R>::template case_<B + 3, Is...>(
             std::forward<F>(f), std::forward<V>(v), std::forward<Vs>(vs)...);
       }
       default: {
-        return dispatcher<B + 1 < size, IsValue, R>::template switch_<B + 1, Is...>(
+        return dispatcher<B + 4 < size, IsValue, R>::template switch_<B + 4, Is...>(
             std::forward<F>(f), std::forward<V>(v), std::forward<Vs>(vs)...);
       }
     }
@@ -227,7 +235,7 @@ constexpr R visit_index(Visitor &&vis, Variants &&...vars) {
     return dispatcher<true, false, R>::template switch_<0>(std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
   }
 }
-
+} // end of var namespace
 
 template <typename F, typename ...V>
 constexpr decltype(auto) visit(F &&f, V &&...v) {
@@ -236,7 +244,7 @@ constexpr decltype(auto) visit(F &&f, V &&...v) {
   }
 
   using R = decltype(std::invoke(std::forward<F>(f), get<0>(std::forward<V>(v))...));
-  return dispatcher<true, true, R>::template switch_<0>(std::forward<F>(f), std::forward<V>(v)...);
+  return var::dispatcher<true, true, R>::template switch_<0>(std::forward<F>(f), std::forward<V>(v)...);
 }
 
 template <typename R, typename Visitor, typename ...Variants>
@@ -246,9 +254,9 @@ constexpr R visit(Visitor &&vis, Variants &&...vars) {
   }
 
   if constexpr (std::is_same_v<void, std::remove_cv_t<R>>) {
-    dispatcher<true, true, R>::template switch_<0>(std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
+    var::dispatcher<true, true, R>::template switch_<0>(std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
   } else {
-    return dispatcher<true, true, R>::template switch_<0>(std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
+    return var::dispatcher<true, true, R>::template switch_<0>(std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
   }
 }
 
@@ -273,21 +281,22 @@ constexpr std::add_pointer_t<const variant_alternative_t<I, variant<Types...>>> 
 
 template<typename T, typename ...Types>
 constexpr std::add_pointer_t<T> get_if(variant<Types...> *pv) noexcept {
-  return get_if<type_index<T, Types...>>(pv);
+  return get_if<var::type_index<T, Types...>>(pv);
 }
 
 template<typename T, typename ...Types>
 constexpr std::add_pointer_t<const T> get_if(variant<Types...> const *pv) noexcept {
-  return get_if<type_index<T, Types...>>(pv);
+  return get_if<var::type_index<T, Types...>>(pv);
 }
 
 template<typename T, typename ...Types>
 constexpr bool holds_alternative(variant<Types...> const &v) noexcept {
-  return visit_index<bool>([&v](auto variant_index) {
-    return variant_index == type_index<T, Types...>;
+  return var::visit_index<bool>([&v](auto variant_index) {
+    return variant_index == var::type_index<T, Types...>;
   }, v);
 }
 
+namespace var {
 template<typename First, typename T, typename = void>
 struct check_arr {
   First arr[1];
@@ -354,5 +363,4 @@ template <bool is_trivial, typename ...Types>
 constexpr variant<Types...> const &variant_cast(variadic_storage_destructor_base<is_trivial, Types...> const &base) {
   return reinterpret_cast<variant<Types...> const &>(base);
 }
-
-
+} // end of var namespace

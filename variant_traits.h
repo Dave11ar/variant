@@ -1,6 +1,7 @@
 #pragma once
 #include "helpers.h"
 
+namespace var {
 template <typename ...Types>
 struct variant_traits {
   template<size_t I, typename ...Rest>
@@ -67,10 +68,12 @@ struct variant_traits {
   static constexpr bool move_constructible = (std::is_move_constructible_v<Types> && ...);
   template <typename T, typename ...F_Types>
   static constexpr bool in_place_type_constructible = std::is_constructible_v<T, F_Types...> && (count_type_v<T, Types...> == 1);
-  template <size_t I, typename ...F_Types>
-  static constexpr bool in_place_index_constructible = (I < sizeof...(Types)) &&
-                                                       std::is_constructible_v<variant_alternative_t<I, variant<Types...>>, F_Types...>;
-  template <typename T>
+  template <size_t I, std::enable_if_t<(I < sizeof...(Types)), int> = 0>
+  struct in_place_index_constructible_base {
+    template <typename ...F_Types>
+    static constexpr bool in_place_index_constructible = std::is_constructible_v<variant_alternative_t<I, variant<Types...>>, F_Types...>;
+  };
+  template <typename T, std::enable_if_t<index_chooser_v<T, variant<Types...>> < sizeof...(Types), int> = 0>
   static constexpr bool converting_constructible = (sizeof...(Types) > 0) &&
                                           (!std::is_same_v<variant<Types...>, std::decay_t<T>>) &&
                                           (is_in_place_v<T>) &&
@@ -79,7 +82,7 @@ struct variant_traits {
 
   static constexpr bool copy_assignable = copy_constructible && (std::is_copy_assignable_v<Types> && ...);
   static constexpr bool move_assignable = move_constructible && (std::is_move_assignable_v<Types> && ...);
-  template <typename T>
+  template <typename T, std::enable_if_t<index_chooser_v<T, variant<Types...>> < sizeof...(Types), int> = 0>
   static constexpr bool converting_assignable = converting_constructible<T> &&
       std::is_assignable_v<variant_alternative_t<index_chooser_v<T, variant<Types...>>, variant<Types...>>, T>;
 
@@ -88,9 +91,9 @@ struct variant_traits {
   static constexpr bool nothrow_move_constructible = (std::is_nothrow_move_constructible_v<Types> && ...);
   static constexpr bool nothrow_move_assignable =
       nothrow_move_constructible && (std::is_nothrow_move_assignable_v<Types> && ...);
-  template <typename T>
+  template <typename T, std::enable_if_t<index_chooser_v<T, variant<Types...>> < sizeof...(Types), int> = 0>
   static constexpr bool nothrow_converting_constructible = std::is_nothrow_constructible_v<variant_alternative_t<index_chooser_v<T, variant<Types...>>, variant<Types...>>, T>;
-  template <typename T>
+  template <typename T, std::enable_if_t<index_chooser_v<T, variant<Types...>> < sizeof...(Types), int> = 0>
   static constexpr bool nothrow_converting_assignable = nothrow_converting_constructible<T> &&
       std::is_nothrow_assignable_v<variant_alternative_t<index_chooser_v<T, variant<Types...>>, variant<Types...>>, T>;
 
@@ -101,3 +104,4 @@ struct variant_traits {
   static constexpr bool trivially_copy_assignable = trivially_copy_constructible && (std::is_trivially_copy_assignable_v<Types> && ...) && trivially_destructible;
   static constexpr bool trivially_move_assignable = trivially_move_constructible && (std::is_trivially_move_assignable_v<Types> && ...) && trivially_destructible;
 };
+} // end of var namespace
