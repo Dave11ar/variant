@@ -32,7 +32,7 @@ inline constexpr size_t variant_npos = -1;
 namespace var {
 template <typename T, typename ...Types>
 inline constexpr size_t type_index =  var::variadic_union<false, Types...>::template get_type_index<0>(in_place_type<T>);
-}
+} // end of var namespace
 
 template <size_t I, typename Variant>
 struct variant_alternative;
