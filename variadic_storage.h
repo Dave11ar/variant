@@ -16,11 +16,11 @@ protected:
     variant_cast(*this).reset();
   }
 
-  template <typename T/*, std::enable_if_t<std::is_constructible_v<T, T>, int> = 0*/ >
+  template <typename T>
   constexpr variadic_storage_destructor_base(T &&t)
       : index_val(var::index_chooser_v<T, variant<First, Rest...>>), value(in_place_index<var::index_chooser_v<T, variant<First, Rest...>>>, std::forward<T>(t)) {}
 
-  template <typename T, typename ...Args/*, std::enable_if_t<std::is_constructible_v<T, Args...>, int> = 0*/>
+  template <typename T, typename ...Args>
   constexpr variadic_storage_destructor_base(in_place_type_t<T>, Args&&... args)
       : index_val(var::type_index<T, First, Rest...>), value(in_place_index<var::type_index<T, First, Rest...>>, std::forward<Args>(args)...) {}
 
