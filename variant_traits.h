@@ -25,21 +25,21 @@ struct variant_traits {
 
   template<typename T>
   struct is_in_place {
-    static constexpr bool value = true;
+    static constexpr bool value = false;
   };
 
   template<typename T>
   struct is_in_place<in_place_type_t<T>> {
-    static constexpr bool value = false;
+    static constexpr bool value = true;
   };
 
   template<size_t I>
   struct is_in_place<in_place_index_t<I>> {
-    static constexpr bool value = false;
+    static constexpr bool value = true;
   };
 
   template <typename T>
-  static constexpr bool is_in_place_v = is_in_place<T>::value;
+  static constexpr bool is_in_place_v = !is_in_place<T>::value;
 
 
   template <typename T, typename ...F_Types>
@@ -54,11 +54,6 @@ struct variant_traits {
 
   template <typename T, typename ...F_Types>
   static constexpr size_t count_type_v = count_type<T, F_Types...>::value;
-
-  template <size_t I, typename First, typename ...Rest>
-  static constexpr size_t get_type_index(in_place_type_t<First>) {
-    return I;
-  }
 
   /**
    * traits

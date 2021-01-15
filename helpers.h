@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <cassert>
 
 template <typename ...Types>
 struct variant;
@@ -88,8 +89,8 @@ struct variant_size<const volatile Variant>
 template <typename Variant>
 inline constexpr std::size_t variant_size_v = variant_size<Variant>::value;
 
-struct bad_variant_access : public std::exception {
-  constexpr const char* what() const noexcept {
+struct bad_variant_access final : public std::exception {
+  constexpr const char* what() const noexcept override {
     return "bad_variant_access";
   }
 };
@@ -127,7 +128,7 @@ constexpr T &get(variant<Types...> &v) {
 
 template <typename T, typename ...Types>
 constexpr T &&get(variant<Types...> &&v) {
-  return std::move(get<var::type_index<T>, Types...>(v));
+  return std::move(get<var::type_index<T>, Types...>(std::move(v)));
 }
 
 template <typename T, typename ...Types>
@@ -137,20 +138,14 @@ constexpr T const &get(variant<Types...> const &v) {
 
 template <typename T, typename ...Types>
 constexpr T const &&get(variant<Types...> const &&v) {
-  return std::forward<T const &&>(get<var::type_index<T>, Types...>(v));
+  return std::forward<T const &&>(get<var::type_index<T>, Types...>(std::forward<variant<Types...> const &&>(v)));
 }
 
 
 
 namespace var {
-template<size_t index>
-struct index_wrapper {
-  static constexpr size_t value = index;
-
-  constexpr operator size_t()  {
-    return value;
-  }
-};
+template<size_t I>
+struct index_wrapper : std::integral_constant<size_t, I> {};
 
 template <bool IsValid, bool IsValue, typename R>
 struct dispatcher;
@@ -159,12 +154,12 @@ template <bool IsValue, typename R>
 struct dispatcher<false, IsValue, R> {
   template<size_t I, size_t ...Is, typename F, typename V, typename ...Vs>
   static constexpr R case_(F &&f, V &&v, Vs &&...vs) {
-    __builtin_unreachable();
+    throw bad_variant_access();
   }
 
   template<size_t B, size_t ...Is, typename F, typename V, typename ...Vs>
   static constexpr R switch_(F &&f, V &&v, Vs &&...vs) {
-    __builtin_unreachable();
+    throw bad_variant_access();
   }
 };
 
@@ -173,18 +168,10 @@ struct dispatcher<true, IsValue, R> {
   template<size_t I, size_t ...Is, typename F, typename V, typename ...Vs>
   static constexpr R case_(F &&f, V &&v, Vs &&...vs) {
     if constexpr (sizeof...(Is) == sizeof...(Vs)) {
-      if constexpr (std::is_same_v<void, std::remove_cv_t<R>>) {
-        if constexpr (IsValue) {
-          f(get<Is>(std::forward<Vs>(vs))..., get<I>(std::forward<V>(v)));
-        } else {
-          f(index_wrapper<Is>{}..., index_wrapper<I>{});
-        }
+      if constexpr (IsValue) {
+        return std::forward<F>(f)(get<Is>(std::forward<Vs>(vs))..., get<I>(std::forward<V>(v)));
       } else {
-        if constexpr (IsValue) {
-          return f(get<Is>(std::forward<Vs>(vs))..., get<I>(std::forward<V>(v)));
-        } else {
-          return f(index_wrapper<Is>{}..., index_wrapper<I>{});
-        }
+        return std::forward<F>(f)(index_wrapper<Is>{}..., index_wrapper<I>{});
       }
     } else {
       return switch_<0, Is..., I>(std::forward<F>(f), std::forward<Vs>(vs)..., std::forward<V>(v));
@@ -227,11 +214,7 @@ constexpr decltype(auto) visit_index(F &&f, V &&...v) {
 
 template <typename R, typename Visitor, typename ...Variants>
 constexpr R visit_index(Visitor &&vis, Variants &&...vars) {
-  if constexpr (std::is_same_v<void, std::remove_cv_t<R>>) {
-    dispatcher<true, false, R>::template switch_<0>(std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
-  } else {
-    return dispatcher<true, false, R>::template switch_<0>(std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
-  }
+  return dispatcher<true, false, R>::template switch_<0>(std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
 }
 } // end of var namespace
 
@@ -251,11 +234,7 @@ constexpr R visit(Visitor &&vis, Variants &&...vars) {
     throw bad_variant_access();
   }
 
-  if constexpr (std::is_same_v<void, std::remove_cv_t<R>>) {
-    var::dispatcher<true, true, R>::template switch_<0>(std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
-  } else {
-    return var::dispatcher<true, true, R>::template switch_<0>(std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
-  }
+  return var::dispatcher<true, true, R>::template switch_<0>(std::forward<Visitor>(vis), std::forward<Variants>(vars)...);
 }
 
 
@@ -289,9 +268,7 @@ constexpr std::add_pointer_t<const T> get_if(variant<Types...> const *pv) noexce
 
 template<typename T, typename ...Types>
 constexpr bool holds_alternative(variant<Types...> const &v) noexcept {
-  return var::visit_index<bool>([&v](auto variant_index) {
-    return variant_index == var::type_index<T, Types...>;
-  }, v);
+  return v.index() == var::type_index<T, Types...>;
 }
 
 namespace var {
@@ -348,17 +325,17 @@ template <typename T, typename Variant>
 static constexpr size_t index_chooser_v = index_chooser<T, Variant>::value;
 
 template <bool is_trivial, typename ...Types>
-constexpr variant<Types...> &&variant_cast(variadic_storage_destructor_base<is_trivial, Types...> &&base) {
-  return reinterpret_cast<variant<Types...> &&>(base);
+constexpr variant<Types...> &variant_cast(variadic_storage_destructor_base<is_trivial, Types...> &base) {
+  return static_cast<variant<Types...> &>(base);
 }
 
 template <bool is_trivial, typename ...Types>
-constexpr variant<Types...> &variant_cast(variadic_storage_destructor_base<is_trivial, Types...> &base) {
-  return reinterpret_cast<variant<Types...> &>(base);
+constexpr variant<Types...> &&variant_cast(variadic_storage_destructor_base<is_trivial, Types...> &&base) {
+  return static_cast<variant<Types...> &&>(base);
 }
 
 template <bool is_trivial, typename ...Types>
 constexpr variant<Types...> const &variant_cast(variadic_storage_destructor_base<is_trivial, Types...> const &base) {
-  return reinterpret_cast<variant<Types...> const &>(base);
+  return static_cast<variant<Types...> const &>(base);
 }
 } // end of var namespace

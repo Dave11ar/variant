@@ -2,7 +2,7 @@
 
 #include "variadic_union.h"
 #include "variant_traits.h"
-#include <bits/enable_special_members.h>
+#include "enable_special_members.h"
 /**
  * bases for destructor
  */
@@ -124,7 +124,7 @@ struct variadic_storage_move_constructor_base :
       return;
     }
 
-    this_variant.emplace_variant(std::forward<decltype(other_variant)>(other_variant));
+    this_variant.emplace_variant(std::move(other_variant));
   }
 
 
@@ -169,7 +169,14 @@ struct variadic_storage_copy_assignment_base :
         if constexpr (this_index == other_index) {
           get<this_index>(this_variant) = get<other_index>(other_variant);
         } else {
-          this_variant.emplace_variant(other_variant);
+          using other_type = variant_alternative<other_index, variant<Types...>>;
+
+          if (std::is_nothrow_copy_constructible_v<other_type> ||
+              !std::is_nothrow_move_constructible_v<other_type>) {
+            this_variant.emplace_variant(other_variant);
+          } else {
+            this_variant = std::move(variant(other_variant));
+          }
         }
       }, this_variant, other_variant);
     }

@@ -3,15 +3,15 @@
 #include <algorithm>
 #include <utility>
 #include "variadic_storage.h"
-#include <bits/enable_special_members.h>
+#include "enable_special_members.h"
 
 template <typename ...Types>
 struct variant : private var::variadic_storage<Types...>,
-                 private std::_Enable_default_constructor<var::variant_traits<Types...>::default_constructible>,
-                 private std::_Enable_copy_move<var::variant_traits<Types...>::copy_constructible, var::variant_traits<Types...>::copy_assignable,
+                 private Enable_default_constructor<var::variant_traits<Types...>::default_constructible>,
+                 private Enable_copy_move<var::variant_traits<Types...>::copy_constructible, var::variant_traits<Types...>::copy_assignable,
                                                 var::variant_traits<Types...>::move_constructible, var::variant_traits<Types...>::move_assignable> {
 
-  using default_ctor_enabler = std::_Enable_default_constructor<var::variant_traits<Types...>::default_constructible>;
+  using default_ctor_enabler = Enable_default_constructor<var::variant_traits<Types...>::default_constructible>;
   using base = var::variadic_storage<Types...>;
   using base::base;
 
@@ -25,16 +25,16 @@ public:
 
   template <typename T, std::enable_if_t<var::variant_traits<Types...>::template converting_constructible<T>, int> = 0>
   constexpr variant(T &&t) noexcept(var::variant_traits<Types...>::template nothrow_converting_constructible<T>)
-      : base(std::forward<T>(t)), default_ctor_enabler(std::_Enable_default_constructor_tag{}) {}
+      : base(std::forward<T>(t)), default_ctor_enabler(Enable_default_constructor_tag{}) {}
 
   template <typename T, typename ...Args, std::enable_if_t<var::variant_traits<Types...>::template in_place_type_constructible<T, Args...>, int> = 0>
   constexpr explicit variant(in_place_type_t<T>, Args&&... args)
-      : base(in_place_type<T>, std::forward<Args>(args)...), default_ctor_enabler(std::_Enable_default_constructor_tag{}) {}
+      : base(in_place_type<T>, std::forward<Args>(args)...), default_ctor_enabler(Enable_default_constructor_tag{}) {}
 
   template <size_t I, typename ...Args, std::enable_if_t<var::variant_traits<Types...>::template
       in_place_index_constructible_base<I>::template in_place_index_constructible<Args...>, int> = 0>
   constexpr explicit variant(in_place_index_t<I>, Args &&...args)
-    : base(in_place_index<I>, std::forward<Args>(args)...), default_ctor_enabler(std::_Enable_default_constructor_tag{}) {}
+    : base(in_place_index<I>, std::forward<Args>(args)...), default_ctor_enabler(Enable_default_constructor_tag{}) {}
 
   template <typename T, std::enable_if_t<var::variant_traits<Types...>::template converting_assignable<T>, int> = 0>
   constexpr variant &operator=(T &&t) noexcept(var::variant_traits<Types...>::template nothrow_converting_assignable<T>) {
@@ -100,13 +100,7 @@ public:
           swap(this->index_val, other.index_val);
       }, *this, other);
     } else {
-      var::visit_index<void>([this, &other](auto this_index, auto other_index){
-        auto tmp(std::move(::get<other_index>(other)));
-
-        other.emplace_variant(std::move(::get<this_index>(*this)));
-        this->reset();
-        this->emplace_variant(std::move(tmp));
-      }, *this, other);
+      std::swap(*this, other);
     }
   }
 
@@ -120,7 +114,7 @@ public:
 private:
   void emplace_variant(variant &&other) {
     var::visit_index<void>([this, &other](auto _index) {
-      this->template emplace<_index>(::get<_index>(std::forward<decltype(other)>(other)));
+      this->template emplace<_index>(::get<_index>(std::move(other)));
     }, std::forward<variant>(other));
   }
 
@@ -175,6 +169,13 @@ private:
   friend struct var::variadic_storage_move_assignment_base;
   template <typename ...F_Types>
   friend struct var::variadic_storage;
+
+  template <bool is_trivial, typename ...F_Types>
+  friend constexpr variant<F_Types...> &var::variant_cast(var::variadic_storage_destructor_base<is_trivial, F_Types...> &);
+  template <bool is_trivial, typename ...F_Types>
+  friend constexpr variant<F_Types...> &&var::variant_cast(var::variadic_storage_destructor_base<is_trivial, F_Types...> &&);
+  template <bool is_trivial, typename ...F_Types>
+  friend constexpr variant<F_Types...> const &var::variant_cast(var::variadic_storage_destructor_base<is_trivial, F_Types...> const &);
 };
 
 template <typename ...Types>

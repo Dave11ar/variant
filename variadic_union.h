@@ -6,7 +6,7 @@
 #include "variadic_storage.h"
 
 namespace var {
-template <bool, typename ...Types>
+template <bool trivially_destructible, typename ...Types>
 union variadic_union {
 };
 
