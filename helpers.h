@@ -299,7 +299,7 @@ struct checker<T, variant<First, Rest...>, std::void_t<decltype(check_arr<First,
 
 template <typename T, typename Variant>
 struct chooser {
-  static constexpr void fun() {}
+  static constexpr void fun();
 };
 
 template <typename T, typename First, typename ...Rest>
