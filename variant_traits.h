@@ -24,33 +24,24 @@ struct variant_traits {
 
 
   template<typename T>
-  struct is_in_place {
-    static constexpr bool value = false;
-  };
+  struct is_in_place : std::integral_constant<bool, false> {};
 
   template<typename T>
-  struct is_in_place<in_place_type_t<T>> {
-    static constexpr bool value = true;
-  };
+  struct is_in_place<in_place_type_t<T>> : std::integral_constant<bool, true> {};
 
   template<size_t I>
-  struct is_in_place<in_place_index_t<I>> {
-    static constexpr bool value = true;
-  };
+  struct is_in_place<in_place_index_t<I>> : std::integral_constant<bool, true> {};
 
   template <typename T>
   static constexpr bool is_in_place_v = !is_in_place<T>::value;
 
 
   template <typename T, typename ...F_Types>
-  struct count_type {
-    static constexpr size_t value = 0;
-  };
+  struct count_type : std::integral_constant<size_t, 0> {};
 
   template <typename T, typename First, typename ...Rest>
-  struct count_type<T, First, Rest...> {
-    static constexpr size_t value = std::is_same_v<T, First> + count_type<T, Rest...>::value;
-  };
+  struct count_type<T, First, Rest...>
+      : std::integral_constant<size_t, std::is_same_v<T, First> + count_type<T, Rest...>::value>{};
 
   template <typename T, typename ...F_Types>
   static constexpr size_t count_type_v = count_type<T, F_Types...>::value;
