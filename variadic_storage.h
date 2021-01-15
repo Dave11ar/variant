@@ -16,14 +16,6 @@ protected:
     variant_cast(*this).reset();
   }
 
-  template <typename T>
-  constexpr variadic_storage_destructor_base(T &&t)
-      : index_val(var::index_chooser_v<T, variant<First, Rest...>>), value(in_place_index<var::index_chooser_v<T, variant<First, Rest...>>>, std::forward<T>(t)) {}
-
-  template <typename T, typename ...Args>
-  constexpr variadic_storage_destructor_base(in_place_type_t<T>, Args&&... args)
-      : index_val(var::type_index<T, First, Rest...>), value(in_place_index<var::type_index<T, First, Rest...>>, std::forward<Args>(args)...) {}
-
   template <size_t I, typename ...Args>
   constexpr variadic_storage_destructor_base(in_place_index_t<I>, Args &&...args)
       : index_val(I), value(in_place_index<I>, std::forward<Args>(args)...) {}
@@ -43,14 +35,6 @@ template <typename First, typename ...Rest>
 struct variadic_storage_destructor_base<true, First, Rest...> {
 protected:
   using var_union = variadic_union<true, First, Rest...>;
-
-  template <typename T>
-  constexpr variadic_storage_destructor_base(T &&t)
-      : index_val(var::index_chooser_v<T, variant<First, Rest...>>), value(in_place_index<var::index_chooser_v<T, variant<First, Rest...>>>, std::forward<T>(t)) {}
-
-  template <typename T, typename ...Args>
-  constexpr variadic_storage_destructor_base(in_place_type_t<T>, Args&&... args)
-      : index_val(var::type_index<T, First, Rest...>), value(in_place_index<var::type_index<T, First, Rest...>>, std::forward<Args>(args)...) {}
 
   template <size_t I, typename ...Args>
   constexpr variadic_storage_destructor_base(in_place_index_t<I>, Args&&... args)

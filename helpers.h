@@ -153,12 +153,12 @@ struct dispatcher;
 template <bool IsValue, typename R>
 struct dispatcher<false, IsValue, R> {
   template<size_t I, size_t ...Is, typename F, typename V, typename ...Vs>
-  static constexpr R case_(F &&f, V &&v, Vs &&...vs) {
+  static R case_(F &&f, V &&v, Vs &&...vs) {
     throw bad_variant_access();
   }
 
   template<size_t B, size_t ...Is, typename F, typename V, typename ...Vs>
-  static constexpr R switch_(F &&f, V &&v, Vs &&...vs) {
+  static R switch_(F &&f, V &&v, Vs &&...vs) {
     throw bad_variant_access();
   }
 };
