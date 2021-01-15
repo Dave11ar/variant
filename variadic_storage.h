@@ -155,7 +155,7 @@ struct variadic_storage_copy_assignment_base :
         } else {
           using other_type = variant_alternative<other_index, variant<Types...>>;
 
-          if (std::is_nothrow_copy_constructible_v<other_type> ||
+          if constexpr (std::is_nothrow_copy_constructible_v<other_type> ||
               !std::is_nothrow_move_constructible_v<other_type>) {
             this_variant.emplace_variant(other_variant);
           } else {
